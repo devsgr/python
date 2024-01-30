@@ -122,6 +122,8 @@ def update(Unit, Baseurl,BaseFolder):
                         if chunk:
                                 f.write(chunk) 
                 f.close()
+
+update(Unit, Baseurl,BaseFolder)
 Reload = True
 while True:
     # Run the index file from local
