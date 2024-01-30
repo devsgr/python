@@ -122,10 +122,12 @@ def update(Unit, Baseurl,BaseFolder):
                         if chunk:
                                 f.write(chunk) 
                 f.close()
-
+Reload = True
 while True:
     # Run the index file from local
-    pid = subprocess.Popen('chromium-browser --kiosk ~/www/index.html &', shell = True)
+    if(Reload):
+        pid = subprocess.Popen('chromium-browser --kiosk ~/www/index.html &', shell = True)
+    Reload = False
     Now = datetime.now()
     NextRun = Now + timedelta(minutes=UpdateInterval)
     SleepSec = (NextRun - Now).total_seconds()
@@ -138,7 +140,7 @@ while True:
         # Switch to updating message
         pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
         update(Unit, Baseurl,BaseFolder) 
-        
+        Reload = True
     # Write is active
     
     if (v[Unit] != "0"):
