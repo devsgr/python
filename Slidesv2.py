@@ -98,7 +98,8 @@ def update(Unit, Baseurl,BaseFolder):
                         if chunk:
                                 f.write(chunk) 
                 f.close()
-
+                
+pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
 update(Unit, Baseurl,BaseFolder)
 Reload = True
 while True:
@@ -122,7 +123,7 @@ while True:
         Reload = True
     # Write is active
     
-    if (v[Unit] != "0"): # Write 0 only if the value is not already 0 (Avoids unnecessary writing as ThingSpeak has 15 seconds writing limit
+    if (v[Unit-1] != "0"): # Write 0 only if the value is not already 0 (Avoids unnecessary writing as ThingSpeak has 15 seconds writing limit
         msg = v[:Unit-1] + "0" + v[Unit:] # In Python index starts at 0 and in thing speak, the first number belongs to Unit 1
         while (not WriteField1(msg)):
             sleep(16) #Thing Speak has 15 seconds interval limit. Try again after 16 seconds (1 second buffer)
