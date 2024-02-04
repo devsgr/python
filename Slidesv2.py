@@ -37,26 +37,13 @@ def WriteField1(msg):
         return False
 
 def ValueIs2(v):
-# If v at Unit is 2 update else do nothing
-    if (v == '-1'):
+# If v at Unit is 2, return true else return false 
+    if (v <=  '-1'):   # Thing speak returns -1? if there is a reading error
         return False
-    elif(v[Unit]=="2"):
+    elif(v[Unit-1]=="2"):
         return True
     else:
         return False
-    
-    
-def isNewIndex():
-    r = requests.get(Baseurl + 'index.html')
-    rL = r.headers['Content-Length']
-    print(r.headers)
-    local = os.path.getsize(BaseFolder + "index.html")
-    print(local) 
-    if (local == rL):
-        return False
-    else:
-        return True
-        
 def update(Unit, Baseurl,BaseFolder):
 # read and Copy index.html
     FileName = 'index.html'
@@ -127,6 +114,7 @@ while True:
     
     v = ReadField1()
     #Check if 2
+    # Make sure in Thingspeak that the length of v is greater than the unit value
     if(ValueIs2(v)):
         # Switch to updating message
         pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
@@ -135,7 +123,7 @@ while True:
     # Write is active
     
     if (v[Unit] != "0"): # Write 0 only if the value is not already 0 (Avoids unnecessary writing as ThingSpeak has 15 seconds writing limit
-        msg = v[:Unit] + "0" + v[Unit+1:]
+        msg = v[:Unit-1] + "0" + v[Unit:] # In Python index starts at 0 and in thing speak, the first number belongs to Unit 1
         while (not WriteField1(msg)):
             sleep(16) #Thing Speak has 15 seconds interval limit. Try again after 16 seconds (1 second buffer)
 
