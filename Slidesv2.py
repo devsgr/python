@@ -76,7 +76,7 @@ def update(Unit, Baseurl,BaseFolder):
             y = r.text.find('.', x+1)
             FileName = r.text[x:y+4]
             downloadurl = Baseurl + FileName
-            WritePath = BaseFolder + FileName.replace('/','\\')
+            WritePath = BaseFolder + FileName # add .replace('/','\\') for windows
             # Videos should be downloaded only if the length doesn't match or the file does not exist
 
             if (r.text[x:x+6]=='Videos' and os.path.exists(WritePath)):
@@ -101,6 +101,7 @@ def update(Unit, Baseurl,BaseFolder):
                 
 pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
 update(Unit, Baseurl,BaseFolder)
+pid.terminate()
 Reload = True
 while True:
     # Run the index file from the local www path
@@ -118,8 +119,10 @@ while True:
     # Make sure in Thingspeak that the length of v is greater than the unit value
     if(ValueIs2(v)):
         # Switch to updating message
+        pid.terminate()
         pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
-        update(Unit, Baseurl,BaseFolder) 
+        update(Unit, Baseurl,BaseFolder)
+        pid.terminate()
         Reload = True
     # Write is active
     
