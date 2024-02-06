@@ -100,6 +100,7 @@ def update(Unit, Baseurl,BaseFolder):
                 f.close()
                 
 pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
+sleep(10) # Give about 10 seconds to complete starting chromium for the first time. If not given this time, the reading from the web was not successful and got stuck on the next line
 update(Unit, Baseurl,BaseFolder)
 pid.terminate()
 Reload = True
