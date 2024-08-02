@@ -1,3 +1,8 @@
+# Last Update: 2024-08-02
+# Added restart at 3:00 am, 
+# Check web connection before trying to load to to 10 times and reload old page if fails.
+# Added random senconds to write to thinngspeak if conflict.
+
 # This is a working code to automate the readerboard
 # Version 2.0 with an auto-update flag from ThingSpeak
 # Must have a thingspeak account. Replace the API Keys below from Thingspeak Channel, Filed1 (Uese only field1)
@@ -5,6 +10,7 @@ import subprocess
 from time import sleep
 from datetime import datetime, time, timedelta
 import requests
+import random
 import os
 import json
 #Change the following parameters to match your settings
@@ -16,6 +22,7 @@ ReadAPI =  "READAPI123456789" # API Key to read
 WriteAPI = "WRITEAPI12345678" # API Key to write
 UpdateInterval = 15 #Look for an update every this many minutes
 #######################################################################################
+# ReadField1 reads the field 1 from Thinkspeak channel. This returns the value in varaible r. Converst to json and reads the "feeds.field1" tag value
 def ReadField1():
 #read field1
     url = "https://api.thingspeak.com/channels/"+Channel+"/fields/1.json?api_key="+ReadAPI+"&results=2"
@@ -26,7 +33,7 @@ def ReadField1():
     else:
         j = 'X'
     return j
-
+# WriteField1 Writes the field 1 to Thinkspeak channel. 
 def WriteField1(msg):
 #Write back
     url = "https://api.thingspeak.com/update?api_key="+WriteAPI+"&field1=" + msg
@@ -35,7 +42,7 @@ def WriteField1(msg):
          return True
     else:
         return False
-
+# ValueIs2 is a simple function to see if value is 2 for this kiosk to upadate
 def ValueIs2(v):
 # If v at Unit is 2, return true else return false 
     if (v <=  '-1'):   # Thing speak returns -1? if there is a reading error
@@ -44,7 +51,19 @@ def ValueIs2(v):
         return True
     else:
         return False
-def update(Unit, Baseurl,BaseFolder):
+
+def is_Online(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raises an exception if the status code is not 2xx
+        return True
+    except requests.RequestException:
+        return False
+# upadate is the main function that
+# 1. Reads and save the index.html to local folder 
+# 2. Parse the index file to get all the linked image and video fiels
+# 3. Download and save all image and video files to local folder        
+def update(Baseurl,BaseFolder):
 # read and Copy index.html
     FileName = 'index.html'
     r = requests.get(Baseurl + FileName)
@@ -98,10 +117,16 @@ def update(Unit, Baseurl,BaseFolder):
                         if chunk:
                                 f.write(chunk) 
                 f.close()
-                
+tomorrow_3am = (datetime.now() + timedelta(days=1)).replace(hour=3, minute=0, second=0, microsecond=0)                
 pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
-sleep(10) # Give about 10 seconds to complete starting chromium for the first time. If not given this time, the reading from the web was not successful and got stuck on the next line
-update(Unit, Baseurl,BaseFolder)
+# Try and wait 10 seconds up to 10 times to come the unit online, if fails load old page
+TryCount = 0
+while (not is_Online(Baseurl) and TryCount<10):
+    sleep(10)
+    TryCount += 1
+
+if (TryCount < 10):
+    update(Baseurl,BaseFolder)
 pid.terminate()
 Reload = True
 while True:
@@ -122,7 +147,7 @@ while True:
         # Switch to updating message
         pid.terminate()
         pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
-        update(Unit, Baseurl,BaseFolder)
+        update(Baseurl,BaseFolder)
         pid.terminate()
         Reload = True
     # Write is active
