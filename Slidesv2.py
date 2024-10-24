@@ -1,11 +1,15 @@
-# Last Update: 2024-08-02
-# Added restart at 3:00 am, 
-# Check web connection before trying to load to to 10 times and reload old page if fails.
+# Last Update: 2024-10-24
+# Problem with file writing. The program occassionally hung up on "Copying File..." sile even if the rest of the program was working.
+# Tthat may be due to inadequate time for the Rpi to write and close the file
+# As a remedy, the real time update is taken out and only log file was created..
+# Added restart at 7:00 am + Unit* 5 minutes,
+# On power failure stagger Write to thingspeak at Unit*1  minute
+# Check web connection before trying to load to to 10 times and BrowserReload old page if fails.
 # Added random senconds to write to thinngspeak if conflict.
 
 # This is a working code to automate the readerboard
-# Version 2.0 with an auto-update flag from ThingSpeak
-# Must have a thingspeak account. Replace the API Keys below from Thingspeak Channel, Filed1 (Uese only field1)
+# Version 3.0 with an auto-update flag from ThingSpeak
+# Must have a thingseak account. Replace the API Keys below from Thingspeak Channel, Filed1 (Uese only field1)
 import subprocess 
 from time import sleep
 from datetime import datetime, time, timedelta
@@ -21,15 +25,18 @@ BaseFolder = "/home/pi/www/" #Path to the base folder. Create this folder in pi.
 Channel = "123456789" # Thing Speak Channel ID
 ReadAPI =  "READAPI123456789" # API Key to read
 WriteAPI = "WRITEAPI12345678" # API Key to write
-UpdateInterval = 15 #Look for an update every this many minutes
+Tries_B4_Reboot = 3
 #######################################################################################
 # ReadField1 reads the field 1 from Thinkspeak channel. This returns the value in varaible r. Converst to json and reads the "feeds.field1" tag value
 def WriteLog(msg):
-    fl = open(BaseFolder +'Log.txt','a') # Can't write temp.txt but Temp.txt is fine
-    now = datetime.now()
-    fl.write( now.strftime("%m/%d%Y, %H:%M:%S") +'\n' ) 
-    fl.write( msg +'\n')           
-    fl.close()  
+    try:
+        fl = open(BaseFolder +'Log.txt','a') # Can't write temp.txt but Temp.txt is fine
+        now = datetime.now()
+        fl.write( now.strftime("%m/%d/%Y, %H:%M:%S") +'\n' ) 
+        fl.write( msg +'\n')           
+        fl.close()  
+    except:
+        pass
 
 def ReadField1(Channel,ReadAPI):
 #read field1
@@ -59,8 +66,9 @@ def WriteField1(WriteAPI,msg):
 # ValueIs2 is a simple function to see if value is 2 for this kiosk to upadate
 def ValueIs2(v):
 # If v at Unit is 2, return true else return false 
-    if (v <=  '-1'):   # Thing speak returns -1? if there is a reading error
-        return False
+# Make sure in Thingspeak that the length of v is greater than the unit value
+    if (v <=  '-1'):   # Thing speak returns -1? if there is a reading error. Keep this seperate as next elif in invalid if v = -1
+        return False  
     elif(v[Unit-1]=="2"):
         return True
     else:
@@ -79,15 +87,12 @@ def is_Online(url):
 # 2. Parse the index file to get all the linked image and video fiels
 # 3. Download and save all image and video files to local folder
 
-
-
-
-
 def update(Baseurl,BaseFolder):
  
-    # 1 Read and Copy index.html
+    
     FileName = 'index.html'
     try:
+        # 1 Read and Copy index.html
         r = requests.get(Baseurl + FileName)
         r.raise_for_status() # Raises HTTPError for bad responses
         WritePath = BaseFolder + FileName
@@ -97,23 +102,22 @@ def update(Baseurl,BaseFolder):
                     f.write(chunk) 
         
         f.close()
-        
-        
-
-        # Now reading from the index file, copy all image and video files
+     
+        # 2 From the index file, copy all image and video files
         x = 0
         while (x >= 0):
-            #Look for keyword 'Slides/' or 'Videos/'
+            # 2.1 Look for keyword 'Slides/' or 'Videos/'
             x1 = r.text.find("Slides/",x+1) #returns -1 if not found
             x2 = r.text.find("Videos/",x+1) #returns -1 if not found
             if (x1 >=0 and x2 >=0): # There are more slides or video get the first one, returns -1 when EOF
                 x = min(x1,x2)
             else: #There is either no Videos or no Slides returning -1 for that
                 x = max(x1,x2)
-            # print(x)
+            
+            # 2.2 Copy image or video file if x >= 0
             if (x >= 0):
                 
-                # Parse text to find the video or image file   
+                # 3 Parse text to find the video or image file   
                 # Parsing of structured text do not modify 
                 y = r.text.find('.', x+1)
                 FileName = r.text[x:y+4]
@@ -146,90 +150,62 @@ def update(Baseurl,BaseFolder):
                                     f.write(chunk) 
                     f.close()
                     
-                    #MsgFile = open(BaseFolder +'CssJs/Message.txt','a') #Cant write temp.txt but Temp.txt is fine
-                    #MsgFile.write('Copied: ' + FileName + '<br>')
-                    #MsgFile.close()
+                   
         # Open and write the update time to Log.txt
         ToLog = "Update Successful"      
     except:
         ToLog = "Update Unsuccessful \n" + req.text
     
-    WriteLog(ToLog)
-    
+    WriteLog(ToLog)  
 
-NextReboot = (datetime.now() + timedelta(days=1)).replace(hour = RebootTime, minute=0, second=0, microsecond=0)
-MsgFile = open(BaseFolder +'CssJs/Message.txt','w') #Cant write temp.txt but Temp.txt is fine
-Msg = 'Updating...'
-MsgFile.write(Msg)
-MsgFile.close()
-
-pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
-# Check to see if internet is connected
-# Try and wait 10 seconds up to 10 times to come the unit online, if fails load old page
-TryCount = 0
-while (not is_Online(Baseurl) and TryCount<10):
-    TryCount += 1
-    MsgFile = open(BaseFolder +'CssJs/Message.txt','w') #Cant write temp.txt but Temp.txt is fine
-    Msg = 'Updating... <br>'
-    Msg += "Connecting to internet try " + TryCount + "of 10. <br>'"
-    Msg += "Will try again in 10 S."
-    MsgFile.write(Msg)
-    MsgFile.close()
-    WriteLog(Msg)
-    pid.terminate()
-    pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
-    sleep(10) #Try again in 10s
-
-
-
-if (TryCount < 10):
+if (not is_Online(Baseurl)):
+    TryCount = 1
+    WriteLog("Conection to Internet Failed.")
+  
+else:    
+    TryCount = 0
+    WriteLog("Conected to Internet.")
     update(Baseurl,BaseFolder)
-else:
-    MsgFile = open(BaseFolder +'CssJs/Message.txt','w') #Cant write temp.txt but Temp.txt is fine
-    Msg = 'Updating... <br>'
-    Msg += "Could not connect to internet. Loading old files..."
-    MsgFile.write(Msg)
-    MsgFile.close()
-    WriteLog(Msg)
-    pid.terminate()
-    pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
-    sleep(10)
-
-Reload = True  
-
+    
+BrowserReload = True 
+FlagReboot = False
+NextReboot = (datetime.now() + timedelta(days=1)).replace(hour = RebootTime, minute=5*Unit)
+NextUpdate = (datetime.now() + timedelta(hours=1)).replace(minute=5*Unit)
 
 while True:
     # Run the index file from the local www path
-    if(Reload):
-        pid.terminate()
+    if(BrowserReload):
+        try:
+            pid.terminate()
+        except:
+            pass    
         pid = subprocess.Popen('chromium-browser --kiosk ~/www/index.html &', shell = True)
-    Reload = False
+        BrowserReload = False
+    
     Now = datetime.now()
-    if(Now >= NextReboot):
+    if(Now >= NextReboot or FlagReboot):
         os.system('sudo reboot')
 
-    NextRun = Now + timedelta(minutes=UpdateInterval)
-    
-    SleepSec = (NextRun - Now).total_seconds()
-    sleep(SleepSec)
+    sleep((NextUpdate-datetime.now()).seconds) # UndateInterval is in Minutes
     # 1. Check Thingspeak field 1
-    
-    v = ReadField1(Channel,ReadAPI)
+    try:
+        if (not is_Online(Baseurl) and TryCount > Tries_B4_Reboot ):
+            FlagReboot = True
+        elif (not is_Online(Baseurl)): 
+            TryCount = TryCount+1
+        else: # The internet is connecte
+            TryCount = 0    
+            v = ReadField1(Channel,ReadAPI) #v is whole stinr
+            #Check if v=2
+            
+            if(ValueIs2(v)): #ValueIs2 function checks if it is "2" at Unit-1
+                # Switch to updating message
+                update(Baseurl,BaseFolder) 
+                BrowserReload = True
+            if (v[Unit-1] != "0"): # Write 0 only if the value is not already 0 (Avoids unnecessary writing as ThingSpeak has 15 seconds writing limit
+                msg = v[:Unit-1] + "0" + v[Unit:] # In Python index starts at 0 and in thing speak, the first number belongs to Unit 1
+                WriteField1(WriteAPI,msg)
+    except:
+        pass 
 
-    #Check if 2
-    # Make sure in Thingspeak that the length of v is greater than the unit value
-    if(ValueIs2(v)):
-        # Switch to updating message
-        pid = subprocess.Popen('chromium-browser --kiosk ~/www/CssJs/Updating.html &', shell = True)
-        update(Baseurl,BaseFolder) 
-        Reload = True
-    # Write is active
-    
-    if (v[Unit-1] != "0"): # Write 0 only if the value is not already 0 (Avoids unnecessary writing as ThingSpeak has 15 seconds writing limit
-        msg = v[:Unit-1] + "0" + v[Unit:] # In Python index starts at 0 and in thing speak, the first number belongs to Unit 1
-        TryCount =0
-        while (not WriteField1(WriteAPI,msg) and TryCount<10 ):
-            random_number = random.randint(1, 100)
-            sleep(20+random_number) #Thing Speak has 15 seconds interval limit. Try again after 20+ random seconds (5 second buffer)
-            TryCount += 1
 
