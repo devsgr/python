@@ -18,9 +18,17 @@ import random
 import os
 import json
 #Change the following parameters to match your settings
-Unit = 2  #The Kiosk number
-RebootTime = 3 #(3 AM)
-Baseurl = "https://www.webpages.uidaho.edu/iac/BEL336/" #Web site URL where index.html is located
+Unit = 4  #The Kiosk number 1 = BEL300, 2 = BEL336, 3 = EP100, 4 = EP400
+RebootTime = 7 #(Moved away from 3 AM as many university updates happes at 3 AM)
+if Unit == 1:
+    Baseurl = "https://www.webpages.uidaho.edu/iac/BEL300/" #url where index.html is located
+elif Unit == 2:
+    Baseurl = "https://www.webpages.uidaho.edu/iac/BEL336/" 
+elif Unit == 3:
+    Baseurl = "https://www.webpages.uidaho.edu/iac/EP100/" 
+elif Unit == 4:
+    Baseurl = "https://www.webpages.uidaho.edu/iac/EP400/" 
+    
 BaseFolder = "/home/pi/www/" #Path to the base folder. Create this folder in pi. This folder must exist
 Channel = "123456789" # Thing Speak Channel ID
 ReadAPI =  "READAPI123456789" # API Key to read
